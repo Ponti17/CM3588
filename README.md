@@ -297,4 +297,16 @@ glab auth login --hostname cm3588.your-tailnet.ts.net:8929
 
 You should be logged in as your GitLab user. You can use glab to create, delete and configure your repos.
 
+### Reducing GitLab RAM Usage
+
+By default GitLab will consume quite a lot of ram. If the GitLab server is for private use you can reduce the amount of workers without any performance loss. In `/srv/dev-disk-by-uuid-UUID/config/gitlab.rb` uncomment and adjust the following:
+
+```
+puma['worker_processes'] = 0
+prometheus_monitoring['enable'] = false
+postgresql['shared_buffers'] = "256MB"
+```
+
+This reduces the ram usage to just under 2GB.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
