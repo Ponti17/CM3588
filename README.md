@@ -39,6 +39,9 @@
       <ul>
         <li><a href="#using-gitlab-cli-(glab)">Using GitLab CLI (glab)</a></li>
       </ul>
+      <ul>
+        <li><a href="#reducing-gitlab-ram-usage">Reducing GitLab RAM Usage</a></li>
+      </ul>
     </li>
   </ol>
 </details>
@@ -308,5 +311,60 @@ postgresql['shared_buffers'] = "256MB"
 ```
 
 This reduces the ram usage to just under 2GB.
+
+## Jellyfin
+
+The CM3588 is extremely capable at video transcoding due to the integrated GPU. Jellyfin can easily be hosted on system alongside GitLab in another Docker container.
+
+First we must install drivers for the Mali GPU. They are hosted on GitHub [link](https://github.com/tsukumijima/libmali-rockchip). Download the latest using `wget`:
+
+```bash
+wget https://github.com/tsukumijima/libmali-rockchip/releases/download/v1.9-1-3238416/libmali-valhall-g610-g13p0-gbm_1.9-1_arm64.deb
+```
+
+Install using dpkg:
+
+```bash
+dpkg -i libmali-valhall-g610-g13p0-gbm_1.9-1_arm64.deb
+```
+
+In the Docker global environment file we add the paths to where we want to store Jellyfin cache and configuration, as well as the path to our media. I choose the media path to be a folder on the SMB share.
+
+```
+JELLYFYN_CONFIG=/srv/<path>
+JELLYFIN_CACHE=/srv/<path>
+PATH_TO_MEDIA=/srv/<path>
+```
+
+Next use the following Docker compose file:
+
+```docker-compose
+services:
+  jellyfin:
+    image: 'ghcr.io/jellyfin/jellyfin:10.9.10'
+    container_name: 'jellyfin'
+    ports:
+      - '8096:8096/tcp'
+    security_opt: true
+      - systempaths=unconfined
+      - apparmor=unconfined
+    group_add:
+      - 44 # video group
+    devices:
+      - '/dev/dri:/dev/dri'
+      - '/dev/dma_heap:/dev/dma_heap'
+      - '/dev/mali0:/dev/mali0'
+      - '/dev/rga:/dev/rga'
+      - '/dev/mpp_service:/dev/mpp_service'
+    volumes:
+      - '${JELLYFIN_CONFIG}:/config'
+      - '${JELLYFIN_CACHE}:/cache'
+      - '${PATH_TO_MEDIA}:/media'
+    restart: unless-stopped
+```
+
+Now start the container. Jellyfin should be available on port 8096. When Jellyfin is set up remember to enable hardware transcoding.
+
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
